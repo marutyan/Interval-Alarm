@@ -75,6 +75,14 @@ class MainActivity : ComponentActivity() {
                 Log.d("IntervalAlarm", "アラーム${i+1}: %02d:%02d".format(time.first, time.second))
             }
 
+            // --- フォアグラウンドサービスを起動 ---
+            val serviceIntent = android.content.Intent(this, AlarmForegroundService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+
             // --- AlarmManagerでアラームをスケジューリング ---
             val alarmManager = getSystemService(ALARM_SERVICE) as android.app.AlarmManager
             for ((i, time) in alarmTimes.withIndex()) {
@@ -118,6 +126,10 @@ class MainActivity : ComponentActivity() {
                 alarmManager.cancel(pendingIntent)
             }
             android.widget.Toast.makeText(this, "すべてのアラームを停止しました", android.widget.Toast.LENGTH_SHORT).show()
+
+            // サービスも停止
+            val serviceIntent = android.content.Intent(this, AlarmForegroundService::class.java)
+            stopService(serviceIntent)
         }
     }
 }
