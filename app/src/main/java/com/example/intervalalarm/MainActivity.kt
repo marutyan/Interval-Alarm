@@ -76,7 +76,6 @@ class MainActivity : ComponentActivity() {
                     intent,
                     android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                 )
-                // 現在時刻からアラーム時刻までの差分を計算
                 val now = java.util.Calendar.getInstance()
                 val alarmTime = java.util.Calendar.getInstance().apply {
                     set(java.util.Calendar.HOUR_OF_DAY, time.first)
@@ -84,7 +83,7 @@ class MainActivity : ComponentActivity() {
                     set(java.util.Calendar.SECOND, 0)
                     set(java.util.Calendar.MILLISECOND, 0)
                     if (before(now)) {
-                        add(java.util.Calendar.DATE, 1) // すでに過ぎていたら翌日に設定
+                        add(java.util.Calendar.DATE, 1)
                     }
                 }
                 alarmManager.setExactAndAllowWhileIdle(
@@ -93,17 +92,6 @@ class MainActivity : ComponentActivity() {
                     pendingIntent
                 )
                 Log.d("IntervalAlarm", "アラーム${i+1}をスケジューリング: %02d:%02d".format(time.first, time.second))
-            }
-        }
-
-        setContent {
-            IntervalAlarmTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
             }
         }
     }
