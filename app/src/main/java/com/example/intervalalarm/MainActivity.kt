@@ -43,14 +43,14 @@ class MainActivity : ComponentActivity() {
             val endHour = endTimePicker.hour
             val endMinute = endTimePicker.minute
             val intervalText = intervalEditText.text.toString()
-            val intervalMinutes = intervalText.toIntOrNull() ?: 0
+            val intervalMinutes = intervalText.toIntOrNull() ?: -1
 
-            Log.d("IntervalAlarm", "開始時刻: $startHour:$startMinute")
-            Log.d("IntervalAlarm", "終了時刻: $endHour:$endMinute")
-            Log.d("IntervalAlarm", "間隔: $intervalMinutes 分")
-
-            if (intervalMinutes <= 0) {
-                Log.d("IntervalAlarm", "間隔は1分以上にしてください")
+            if (intervalText.isBlank()) {
+                android.widget.Toast.makeText(this, "間隔を入力してください", android.widget.Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (intervalMinutes < 1) {
+                android.widget.Toast.makeText(this, "間隔は1以上の整数で入力してください", android.widget.Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
             val endTotalMinutes = endHour * 60 + endMinute
 
             if (endTotalMinutes <= startTotalMinutes) {
-                Log.d("IntervalAlarm", "終了時刻は開始時刻より後にしてください")
+                android.widget.Toast.makeText(this, "終了時刻は開始時刻より後にしてください", android.widget.Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -71,8 +71,9 @@ class MainActivity : ComponentActivity() {
                 current += intervalMinutes
             }
 
-            for ((i, time) in alarmTimes.withIndex()) {
-                Log.d("IntervalAlarm", "アラーム${i+1}: %02d:%02d".format(time.first, time.second))
+            if (alarmTimes.isEmpty()) {
+                android.widget.Toast.makeText(this, "アラーム時刻が設定できません", android.widget.Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
 
             // --- フォアグラウンドサービスを起動 ---
@@ -108,8 +109,8 @@ class MainActivity : ComponentActivity() {
                     alarmTime.timeInMillis,
                     pendingIntent
                 )
-                Log.d("IntervalAlarm", "アラーム${i+1}をスケジューリング: %02d:%02d".format(time.first, time.second))
             }
+            android.widget.Toast.makeText(this, "アラームを設定しました", android.widget.Toast.LENGTH_SHORT).show()
         }
 
         stopAllAlarmsButton.setOnClickListener {
