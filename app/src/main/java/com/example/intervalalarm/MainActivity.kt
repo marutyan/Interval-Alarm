@@ -65,6 +65,35 @@ class MainActivity : ComponentActivity() {
             for ((i, time) in alarmTimes.withIndex()) {
                 Log.d("IntervalAlarm", "アラーム${i+1}: %02d:%02d".format(time.first, time.second))
             }
+
+            // --- AlarmManagerでアラームをスケジューリング ---
+            val alarmManager = getSystemService(ALARM_SERVICE) as android.app.AlarmManager
+            for ((i, time) in alarmTimes.withIndex()) {
+                val intent = android.content.Intent(this, AlarmReceiver::class.java)
+                val pendingIntent = android.app.PendingIntent.getBroadcast(
+                    this,
+                    i, // 複数アラームを区別するためリクエストコードを変える
+                    intent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+                // 現在時刻からアラーム時刻までの差分を計算
+                val now = java.util.Calendar.getInstance()
+                val alarmTime = java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.HOUR_OF_DAY, time.first)
+                    set(java.util.Calendar.MINUTE, time.second)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                    if (before(now)) {
+                        add(java.util.Calendar.DATE, 1) // すでに過ぎていたら翌日に設定
+                    }
+                }
+                alarmManager.setExactAndAllowWhileIdle(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    alarmTime.timeInMillis,
+                    pendingIntent
+                )
+                Log.d("IntervalAlarm", "アラーム${i+1}をスケジューリング: %02d:%02d".format(time.first, time.second))
+            }
         }
 
         setContent {
