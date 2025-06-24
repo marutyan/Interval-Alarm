@@ -39,6 +39,32 @@ class MainActivity : ComponentActivity() {
             Log.d("IntervalAlarm", "開始時刻: $startHour:$startMinute")
             Log.d("IntervalAlarm", "終了時刻: $endHour:$endMinute")
             Log.d("IntervalAlarm", "間隔: $intervalMinutes 分")
+
+            if (intervalMinutes <= 0) {
+                Log.d("IntervalAlarm", "間隔は1分以上にしてください")
+                return@setOnClickListener
+            }
+
+            val startTotalMinutes = startHour * 60 + startMinute
+            val endTotalMinutes = endHour * 60 + endMinute
+
+            if (endTotalMinutes <= startTotalMinutes) {
+                Log.d("IntervalAlarm", "終了時刻は開始時刻より後にしてください")
+                return@setOnClickListener
+            }
+
+            val alarmTimes = mutableListOf<Pair<Int, Int>>()
+            var current = startTotalMinutes
+            while (current <= endTotalMinutes) {
+                val hour = current / 60
+                val minute = current % 60
+                alarmTimes.add(Pair(hour, minute))
+                current += intervalMinutes
+            }
+
+            for ((i, time) in alarmTimes.withIndex()) {
+                Log.d("IntervalAlarm", "アラーム${i+1}: %02d:%02d".format(time.first, time.second))
+            }
         }
 
         setContent {
