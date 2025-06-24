@@ -45,4 +45,10 @@
         android:layout_height="wrap_content"
         android:text="アラームをセット" />
 
+    <Button
+        android:id="@+id/stopAllAlarmsButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="すべてのアラームを停止" />
+
 </LinearLayout> 
