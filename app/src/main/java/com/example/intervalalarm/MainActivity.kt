@@ -18,6 +18,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.intervalalarm.ui.theme.IntervalAlarmTheme
 import android.os.Build
 import android.content.pm.PackageManager
+import android.media.RingtoneManager
+import android.content.Intent
+import android.app.Activity
+import android.net.Uri
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,6 +40,7 @@ class MainActivity : ComponentActivity() {
         val intervalEditText = findViewById<EditText>(R.id.intervalEditText)
         val setAlarmButton = findViewById<Button>(R.id.setAlarmButton)
         val stopAllAlarmsButton = findViewById<Button>(R.id.stopAllAlarmsButton)
+        val selectRingtoneButton = findViewById<Button>(R.id.selectRingtoneButton)
 
         setAlarmButton.setOnClickListener {
             val startHour = startTimePicker.hour
@@ -131,6 +136,28 @@ class MainActivity : ComponentActivity() {
             // サービスも停止
             val serviceIntent = android.content.Intent(this, AlarmForegroundService::class.java)
             stopService(serviceIntent)
+        }
+
+        selectRingtoneButton.setOnClickListener {
+            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "アラーム音を選択")
+            val currentUri = getSharedPreferences("alarm_prefs", MODE_PRIVATE).getString("ringtone_uri", null)
+            if (currentUri != null) {
+                intent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(currentUri))
+            }
+            startActivityForResult(intent, 200)
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 200 && resultCode == Activity.RESULT_OK) {
+            val uri: Uri? = data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            if (uri != null) {
+                getSharedPreferences("alarm_prefs", MODE_PRIVATE).edit().putString("ringtone_uri", uri.toString()).apply()
+                android.widget.Toast.makeText(this, "アラーム音を設定しました", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }
