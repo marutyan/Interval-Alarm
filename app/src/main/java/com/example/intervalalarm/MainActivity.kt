@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
         val endTimePicker = findViewById<TimePicker>(R.id.endTimePicker)
         val intervalEditText = findViewById<EditText>(R.id.intervalEditText)
         val setAlarmButton = findViewById<Button>(R.id.setAlarmButton)
+        val stopAllAlarmsButton = findViewById<Button>(R.id.stopAllAlarmsButton)
 
         setAlarmButton.setOnClickListener {
             val startHour = startTimePicker.hour
@@ -93,6 +94,22 @@ class MainActivity : ComponentActivity() {
                 )
                 Log.d("IntervalAlarm", "アラーム${i+1}をスケジューリング: %02d:%02d".format(time.first, time.second))
             }
+        }
+
+        stopAllAlarmsButton.setOnClickListener {
+            val alarmManager = getSystemService(ALARM_SERVICE) as android.app.AlarmManager
+            // 最大20個のアラームをキャンセル（リクエストコード0〜19）
+            for (i in 0 until 20) {
+                val intent = android.content.Intent(this, AlarmReceiver::class.java)
+                val pendingIntent = android.app.PendingIntent.getBroadcast(
+                    this,
+                    i,
+                    intent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.cancel(pendingIntent)
+            }
+            android.widget.Toast.makeText(this, "すべてのアラームを停止しました", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 }
