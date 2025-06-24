@@ -16,10 +16,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.intervalalarm.ui.theme.IntervalAlarmTheme
+import android.os.Build
+import android.content.pm.PackageManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Android 13以降は通知パーミッションの実行時リクエストが必要
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 100)
+            }
+        }
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
