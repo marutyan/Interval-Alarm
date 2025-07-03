@@ -8,8 +8,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.media.RingtoneManager
 import android.os.Build
-import android.os.VibrationEffect
 import android.os.Vibrator
+import android.os.VibratorManager
+import android.os.VibrationEffect
 import androidx.core.app.NotificationCompat
 
 class AlarmReceiver : BroadcastReceiver() {
@@ -66,14 +67,33 @@ class AlarmReceiver : BroadcastReceiver() {
         // バイブレーション設定の確認（デフォルトはtrue）
         val isVibrationEnabled = prefs.getBoolean("vibration_enabled", true)
         if (isVibrationEnabled) {
-            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), 0))
-            } else {
-                vibrator.vibrate(longArrayOf(0, 500, 200, 500), 0)
-            }
+            vibrate(context)
         }
 
         notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
+    }
+
+    private fun vibrate(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Android 12以降
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            val vibrator = vibratorManager.defaultVibrator
+            val pattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
+            val effect = VibrationEffect.createWaveform(pattern, 0)
+            vibrator.vibrate(effect)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Android 8.0以降
+            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            val pattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
+            val effect = VibrationEffect.createWaveform(pattern, 0)
+            vibrator.vibrate(effect)
+        } else {
+            // Android 8.0未満
+            @Suppress("DEPRECATION")
+            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            val pattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(pattern, 0)
+        }
     }
 } 
