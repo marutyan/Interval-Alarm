@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Interval Alarm</string>
+    <string name="widget_description">インターバルアラームの状態を表示</string>
 </resources>

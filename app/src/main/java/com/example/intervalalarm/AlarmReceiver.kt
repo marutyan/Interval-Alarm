@@ -16,28 +16,60 @@ import android.os.VibratorManager
 import android.os.VibrationEffect
 import androidx.core.app.NotificationCompat
 import com.example.intervalalarm.data.AlarmRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AlarmReceiver : BroadcastReceiver() {
     companion object {
+        private const val CHANNEL_ID = "alarm_channel"
+        private const val NOTIFICATION_ID = 1
         var mediaPlayer: MediaPlayer? = null
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getStringExtra("alarm_id") ?: return
-        val alarmIndex = intent.getIntExtra("alarm_index", 0)
+        val vibrationEnabled = intent.getBooleanExtra("vibration_enabled", false)
+        val alarmSoundUri = intent.getStringExtra("alarm_sound_uri")
         
-        // AlarmRepositoryからアラーム設定を取得
-        val repository = AlarmRepository(context)
-        val alarmData = repository.getAlarmById(alarmId) ?: return
-        
-        // アラームが無効になっている場合は何もしない
-        if (!alarmData.isEnabled) return
-        
-        createNotificationChannel(context)
-        
+        // コルーチンスコープで非同期処理を実行
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            val repository = AlarmRepository(context)
+            val alarmData = repository.getAlarmById(alarmId)
+            
+            if (alarmData?.isEnabled == true) {
+                // メインスレッドで通知とアラーム音を再生
+                CoroutineScope(Dispatchers.Main).launch {
+                    showNotification(context, alarmId)
+                    playAlarmSound(context, alarmSoundUri)
+                    
+                    if (vibrationEnabled) {
+                        vibrateDevice(context)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showNotification(context: Context, alarmId: String) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         
-        // アラーム停止用のIntent
+        // 通知チャンネルを作成（Android 8.0以降）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "アラーム通知",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "インターバルアラームの通知"
+                enableVibration(true)
+                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), null)
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+        
+        // アラーム停止用のPendingIntent
         val stopIntent = Intent(context, AlarmStopReceiver::class.java).apply {
             putExtra("alarm_id", alarmId)
         }
@@ -48,108 +80,63 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
-        val notificationBuilder = NotificationCompat.Builder(context, "alarm_channel")
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+        // 通知を作成
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("アラーム")
-            .setContentText("${alarmData.startTime} - ${alarmData.endTime} (${alarmData.interval}分間隔)")
+            .setContentText("インターバルアラームが鳴っています")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(false)
             .setOngoing(true)
-            .addAction(
-                android.R.drawable.ic_media_pause,
-                "停止",
-                stopPendingIntent
-            )
+            .addAction(R.drawable.ic_launcher_foreground, "停止", stopPendingIntent)
+            .build()
         
-        // アラーム音を再生
-        playAlarmSound(context, alarmData.alarmSoundUri)
-        
-        // バイブレーション
-        if (alarmData.isVibrationEnabled) {
-            vibrate(context)
-        }
-        
-        notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
+        notificationManager.notify(NOTIFICATION_ID, notification)
     }
-    
-    private fun playAlarmSound(context: Context, customSoundUri: String) {
+
+    private fun playAlarmSound(context: Context, alarmSoundUri: String?) {
         try {
             mediaPlayer?.release()
-            mediaPlayer = MediaPlayer()
-            
-            val soundUri = if (customSoundUri.isNotEmpty()) {
-                Uri.parse(customSoundUri)
-            } else {
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            }
-            
-            mediaPlayer?.apply {
-                setDataSource(context, soundUri)
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
+            mediaPlayer = MediaPlayer().apply {
+                val uri = if (alarmSoundUri.isNullOrEmpty()) {
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                } else {
+                    Uri.parse(alarmSoundUri)
+                }
+                
+                setDataSource(context, uri)
                 isLooping = true
                 prepare()
                 start()
             }
         } catch (e: Exception) {
-            // フォールバック：デフォルトアラーム音
-            try {
-                val ringtone = RingtoneManager.getRingtone(
-                    context,
-                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                )
-                ringtone?.play()
-            } catch (e2: Exception) {
-                // 何もしない
-            }
+            e.printStackTrace()
         }
     }
 
-    private fun createNotificationChannel(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                "alarm_channel",
-                "アラーム通知",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "アラーム通知用チャンネル"
-                enableVibration(true)
-                setSound(null, null) // 音はMediaPlayerで再生
-            }
-            
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-        }
-    }
-
-    private fun vibrate(context: Context) {
+    private fun vibrateDevice(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Android 12以降
             val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
             val vibrator = vibratorManager.defaultVibrator
-            val pattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
-            val effect = VibrationEffect.createWaveform(pattern, 0)
-            vibrator.vibrate(effect)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Android 8.0以降
-            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            val pattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
-            val effect = VibrationEffect.createWaveform(pattern, 0)
-            vibrator.vibrate(effect)
+            val vibrationEffect = VibrationEffect.createWaveform(
+                longArrayOf(0, 1000, 1000),
+                intArrayOf(0, 255, 0),
+                0
+            )
+            vibrator.vibrate(vibrationEffect)
         } else {
-            // Android 8.0未満
             @Suppress("DEPRECATION")
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            val pattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(pattern, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val vibrationEffect = VibrationEffect.createWaveform(
+                    longArrayOf(0, 1000, 1000),
+                    0
+                )
+                vibrator.vibrate(vibrationEffect)
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 1000, 1000), 0)
+            }
         }
     }
 } 

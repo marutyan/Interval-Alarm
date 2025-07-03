@@ -1,167 +1,141 @@
 package com.example.intervalalarm.viewmodel
 
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.State
+import androidx.lifecycle.viewModelScope
 import com.example.intervalalarm.data.AlarmData
-import com.example.intervalalarm.data.AlarmRepository
-import com.example.intervalalarm.AlarmReceiver
+import com.example.intervalalarm.domain.AlarmUseCase
+import com.example.intervalalarm.domain.ValidationResult
+import com.example.intervalalarm.service.AlarmManagerService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.time.LocalTime
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.util.*
-import android.os.Build
+import kotlinx.coroutines.launch
 
-class AlarmViewModel(private val repository: AlarmRepository) : ViewModel() {
-    val alarmSettings: StateFlow<List<AlarmData>> = repository.alarms
+class AlarmViewModel(
+    private val alarmUseCase: AlarmUseCase,
+    private val alarmManagerService: AlarmManagerService
+) : ViewModel() {
     
-    private val _selectedAlarm = MutableStateFlow<AlarmData?>(null)
-    val selectedAlarm: StateFlow<AlarmData?> = _selectedAlarm.asStateFlow()
+    private val _alarmSettings = MutableStateFlow<List<AlarmData>>(emptyList())
+    val alarmSettings: StateFlow<List<AlarmData>> = _alarmSettings.asStateFlow()
     
-    fun addAlarm(context: Context, alarmData: AlarmData) {
-        val newAlarm = alarmData.copy(id = UUID.randomUUID().toString())
-        repository.addAlarm(newAlarm)
-        if (newAlarm.isEnabled) {
-            scheduleAlarm(context, newAlarm)
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+    
+    init {
+        viewModelScope.launch {
+            alarmUseCase.getAllAlarms().collect { alarms ->
+                _alarmSettings.value = alarms
+            }
         }
     }
     
-    fun updateAlarm(context: Context, updatedAlarm: AlarmData) {
-        repository.updateAlarm(updatedAlarm)
-        // 既存のアラームをキャンセルして新しいアラームを設定
-        cancelAlarm(context, updatedAlarm.id)
-        if (updatedAlarm.isEnabled) {
-            scheduleAlarm(context, updatedAlarm)
+    fun addOrUpdateAlarm(context: Context, alarmData: AlarmData) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
+            
+            try {
+                // バリデーション
+                when (val validationResult = alarmUseCase.validateAlarmData(alarmData)) {
+                    is ValidationResult.Success -> {
+                        alarmUseCase.saveAlarm(alarmData)
+                        alarmManagerService.scheduleAlarm(alarmData)
+                        Toast.makeText(context, "アラームを保存しました", Toast.LENGTH_SHORT).show()
+                    }
+                    is ValidationResult.Error -> {
+                        _errorMessage.value = validationResult.message
+                        Toast.makeText(context, validationResult.message, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                val message = "アラームの保存に失敗しました: ${e.message}"
+                _errorMessage.value = message
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
     
     fun deleteAlarm(context: Context, alarmId: String) {
-        cancelAlarm(context, alarmId)
-        repository.deleteAlarm(alarmId)
-    }
-    
-    fun selectAlarm(alarmData: AlarmData) {
-        _selectedAlarm.value = alarmData
-    }
-    
-    fun clearSelection() {
-        _selectedAlarm.value = null
+        viewModelScope.launch {
+            _isLoading.value = true
+            
+            try {
+                alarmUseCase.deleteAlarm(alarmId)
+                alarmManagerService.cancelAlarm(alarmId)
+                Toast.makeText(context, "アラームを削除しました", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                val message = "アラームの削除に失敗しました: ${e.message}"
+                _errorMessage.value = message
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
     
     fun toggleAlarmEnabled(context: Context, alarmId: String) {
-        val alarm = repository.getAlarmById(alarmId)
-        if (alarm != null) {
-            val updatedAlarm = alarm.copy(isEnabled = !alarm.isEnabled)
-            repository.updateAlarm(updatedAlarm)
-            if (updatedAlarm.isEnabled) {
-                scheduleAlarm(context, updatedAlarm)
-            } else {
-                cancelAlarm(context, alarmId)
+        viewModelScope.launch {
+            try {
+                val alarm = alarmUseCase.getAlarmById(alarmId)
+                if (alarm != null) {
+                    val newEnabledState = !alarm.isEnabled
+                    alarmUseCase.toggleAlarmEnabled(alarmId, newEnabledState)
+                    
+                    if (newEnabledState) {
+                        alarmManagerService.scheduleAlarm(alarm.copy(isEnabled = true))
+                    } else {
+                        alarmManagerService.cancelAlarm(alarmId)
+                    }
+                }
+            } catch (e: Exception) {
+                val message = "アラーム設定の変更に失敗しました: ${e.message}"
+                _errorMessage.value = message
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
         }
     }
     
     fun stopAllAlarms(context: Context) {
-        repository.alarms.value.forEach { alarm ->
-            cancelAlarm(context, alarm.id)
-        }
-        repository.stopAllAlarms()
-    }
-    
-    private fun scheduleAlarm(context: Context, alarmData: AlarmData) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        
-        // Android 12以降では正確なアラームの権限をチェック
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (!alarmManager.canScheduleExactAlarms()) {
-                // 権限がない場合は設定画面を開くIntentを作成することもできる
-                // ここでは単純にリターンする
-                return
-            }
-        }
-        
-        val alarmTimes = calculateAlarmTimes(alarmData.startTime, alarmData.endTime, alarmData.interval)
-        
-        alarmTimes.forEachIndexed { index, alarmTime ->
-            val intent = Intent(context, AlarmReceiver::class.java).apply {
-                putExtra("alarm_id", alarmData.id)
-                putExtra("alarm_index", index)
-            }
-            
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                "${alarmData.id}_$index".hashCode(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            
-            val calendar = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, alarmTime.hour)
-                set(Calendar.MINUTE, alarmTime.minute)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-                
-                // 今日の時刻が過ぎていたら明日に設定
-                if (before(Calendar.getInstance())) {
-                    add(Calendar.DAY_OF_MONTH, 1)
-                }
-            }
+        viewModelScope.launch {
+            _isLoading.value = true
             
             try {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    pendingIntent
-                )
-            } catch (e: SecurityException) {
-                // 権限がない場合の処理
-                // ログ出力やユーザーへの通知など
+                val alarmIds = _alarmSettings.value.map { it.id }
+                alarmManagerService.cancelAllAlarms(alarmIds)
+                alarmUseCase.deleteAllAlarms()
+                Toast.makeText(context, "すべてのアラームを停止しました", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                val message = "アラームの停止に失敗しました: ${e.message}"
+                _errorMessage.value = message
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            } finally {
+                _isLoading.value = false
             }
         }
     }
     
-    private fun cancelAlarm(context: Context, alarmId: String) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        
-        // 最大24個のアラームをキャンセル（1日の最大アラーム数を想定）
-        for (i in 0 until 24) {
-            val intent = Intent(context, AlarmReceiver::class.java)
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                "${alarmId}_$i".hashCode(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            alarmManager.cancel(pendingIntent)
-        }
-    }
-    
-    private fun calculateAlarmTimes(startTime: LocalTime, endTime: LocalTime, interval: Int): List<LocalTime> {
-        val alarmTimes = mutableListOf<LocalTime>()
-        var currentTime = startTime
-        
-        while (currentTime <= endTime) {
-            alarmTimes.add(currentTime)
-            currentTime = currentTime.plusMinutes(interval.toLong())
-        }
-        
-        return alarmTimes
+    fun clearErrorMessage() {
+        _errorMessage.value = null
     }
 }
 
-class AlarmViewModelFactory(private val repository: AlarmRepository) : ViewModelProvider.Factory {
+class AlarmViewModelFactory(
+    private val alarmUseCase: AlarmUseCase,
+    private val alarmManagerService: AlarmManagerService
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AlarmViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return AlarmViewModel(repository) as T
+            return AlarmViewModel(alarmUseCase, alarmManagerService) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
