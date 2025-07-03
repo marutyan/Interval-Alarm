@@ -9,127 +9,121 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.intervalalarm.data.AlarmSetting
+import androidx.compose.ui.unit.sp
+import com.example.intervalalarm.data.AlarmData
 import com.example.intervalalarm.viewmodel.AlarmViewModel
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlarmListScreen(
-    viewModel: AlarmViewModel = viewModel(),
-    onNavigateToEdit: (AlarmSetting?) -> Unit = {}
+    viewModel: AlarmViewModel,
+    onNavigateToEdit: (AlarmData?) -> Unit
 ) {
+    val context = LocalContext.current
     val alarmSettings by viewModel.alarmSettings.collectAsState()
     
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("アラーム", style = MaterialTheme.typography.headlineMedium) }
+                title = { Text("アラーム") }
             )
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { onNavigateToEdit(null) },
-                containerColor = MaterialTheme.colorScheme.primary
+                onClick = { onNavigateToEdit(null) }
             ) {
-                Icon(Icons.Default.Add, contentDescription = "新規アラーム追加")
+                Icon(Icons.Default.Add, contentDescription = "新しいアラーム")
             }
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (alarmSettings.isNotEmpty()) {
-                Button(
-                    onClick = { viewModel.stopAllAlarms() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("すべてのアラームを停止")
-                }
+            items(alarmSettings) { alarmData ->
+                AlarmCard(
+                    alarmData = alarmData,
+                    onToggle = { viewModel.toggleAlarmEnabled(context, alarmData.id) },
+                    onEdit = { onNavigateToEdit(alarmData) },
+                    onDelete = { viewModel.deleteAlarm(context, alarmData.id) }
+                )
             }
             
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(alarmSettings) { alarm ->
-                    AlarmCard(
-                        alarm = alarm,
-                        onToggle = { viewModel.toggleAlarmEnabled(alarm.id) },
-                        onEdit = { onNavigateToEdit(alarm) },
-                        onDelete = { viewModel.deleteAlarm(alarm.id) }
-                    )
+            if (alarmSettings.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "アラームがありません\n右下の + ボタンで追加",
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlarmCard(
-    alarm: AlarmSetting,
+    alarmData: AlarmData,
     onToggle: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+    
     Card(
         modifier = Modifier
-            .fillMaxWidth(),
-        onClick = onEdit,
-        colors = CardDefaults.cardColors(
-            containerColor = if (alarm.isEnabled) 
-                MaterialTheme.colorScheme.surface 
-            else 
-                MaterialTheme.colorScheme.surfaceVariant
-        )
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        onClick = onEdit
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.weight(1f)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${alarmData.startTime.format(timeFormatter)} - ${alarmData.endTime.format(timeFormatter)}",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${alarmData.interval}分間隔",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (alarmData.isVibrationEnabled) {
                     Text(
-                        text = alarm.getFormattedTimeRange(),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (alarm.isEnabled) 
-                            MaterialTheme.colorScheme.onSurface 
-                        else 
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "${alarm.intervalMinutes}分間隔",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = alarm.getFormattedDaysOfWeek(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "バイブレーション ON",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
-                Switch(
-                    checked = alarm.isEnabled,
-                    onCheckedChange = { onToggle() }
-                )
             }
+            
+            Switch(
+                checked = alarmData.isEnabled,
+                onCheckedChange = { onToggle() }
+            )
         }
     }
 } 

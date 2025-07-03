@@ -7,111 +7,188 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.example.intervalalarm.data.AlarmSetting
-import com.example.intervalalarm.viewmodel.AlarmViewModel
+import com.example.intervalalarm.data.AlarmData
+import java.time.LocalTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlarmEditScreen(
-    alarm: AlarmSetting?,
-    viewModel: AlarmViewModel,
     onNavigateBack: () -> Unit,
-    onSelectRingtone: () -> Unit
+    onSave: (AlarmData) -> Unit,
+    alarmData: AlarmData? = null
 ) {
-    var isVibrationEnabled by remember { mutableStateOf(alarm?.isVibrationEnabled ?: true) }
-    
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (alarm == null) "新規アラーム" else "アラーム編集") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
-                    }
-                },
-                actions = {
-                    TextButton(
-                        onClick = {
-                            if (alarm == null) {
-                                // 新規作成
-                                val newAlarm = AlarmSetting(
-                                    isVibrationEnabled = isVibrationEnabled
-                                )
-                                viewModel.addAlarm(newAlarm)
-                            } else {
-                                // 編集
-                                val updatedAlarm = alarm.copy(
-                                    isVibrationEnabled = isVibrationEnabled
-                                )
-                                viewModel.updateAlarm(updatedAlarm)
-                            }
-                            onNavigateBack()
-                        }
-                    ) {
-                        Text("保存")
-                    }
+    val context = LocalContext.current
+    var startTime by remember { mutableStateOf(alarmData?.startTime ?: LocalTime.of(6, 30)) }
+    var endTime by remember { mutableStateOf(alarmData?.endTime ?: LocalTime.of(22, 0)) }
+    var interval by remember { mutableStateOf(alarmData?.interval ?: 60) }
+    var isVibrationEnabled by remember { mutableStateOf(alarmData?.isVibrationEnabled ?: true) }
+    var alarmSoundUri by remember { mutableStateOf(alarmData?.alarmSoundUri ?: "") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        // Top Bar
+        TopAppBar(
+            title = { Text("アラーム設定") },
+            navigationIcon = {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                 }
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 開始時刻設定
+        Card(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            // バイブレーション設定
-            Card(
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier.padding(16.dp)
             ) {
+                Text(
+                    text = "開始時刻",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${String.format("%02d", startTime.hour)}:${String.format("%02d", startTime.minute)}",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                // TODO: TimePicker実装
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 終了時刻設定
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "終了時刻",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${String.format("%02d", endTime.hour)}:${String.format("%02d", endTime.minute)}",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                // TODO: TimePicker実装
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 間隔設定
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "間隔（分）",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "バイブレーション",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = "アラーム時に振動する",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Button(
+                        onClick = { if (interval > 1) interval-- },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Text("-")
                     }
-                    Switch(
-                        checked = isVibrationEnabled,
-                        onCheckedChange = { isVibrationEnabled = it }
+                    Text(
+                        text = "$interval",
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp)
                     )
+                    Button(
+                        onClick = { if (interval < 1440) interval++ },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Text("+")
+                    }
                 }
             }
-            
-            // アラーム音選択
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = onSelectRingtone
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // バイブレーション設定
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
+                Text(
+                    text = "バイブレーション",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Switch(
+                    checked = isVibrationEnabled,
+                    onCheckedChange = { isVibrationEnabled = it }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // アラーム音設定
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "アラーム音",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { /* TODO: アラーム音選択 */ },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = "アラーム音",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = alarm?.ringtoneUri?.let { "カスタム音" } ?: "デフォルト",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("アラーム音を選択")
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // 保存ボタン
+        Button(
+            onClick = {
+                val newAlarmData = AlarmData(
+                    id = alarmData?.id ?: "",
+                    startTime = startTime,
+                    endTime = endTime,
+                    interval = interval,
+                    isVibrationEnabled = isVibrationEnabled,
+                    alarmSoundUri = alarmSoundUri,
+                    isEnabled = true
+                )
+                onSave(newAlarmData)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("保存")
         }
     }
 } 

@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -19,19 +20,20 @@ import com.example.intervalalarm.ui.theme.IntervalAlarmTheme
 import com.example.intervalalarm.ui.AlarmListScreen
 import com.example.intervalalarm.ui.AlarmEditScreen
 import com.example.intervalalarm.viewmodel.AlarmViewModel
+import com.example.intervalalarm.data.AlarmData
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         
-        // Android 13以降は通知パーミッションの実行時リクエストが必要
+        // Android 13以降の通知権限をリクエスト
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 100)
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
             }
         }
         
-        enableEdgeToEdge()
         setContent {
             IntervalAlarmTheme {
                 Surface(
@@ -40,6 +42,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
                     val viewModel: AlarmViewModel = viewModel()
+                    val context = LocalContext.current
                     
                     NavHost(
                         navController = navController,
@@ -48,26 +51,32 @@ class MainActivity : ComponentActivity() {
                         composable("alarm_list") {
                             AlarmListScreen(
                                 viewModel = viewModel,
-                                onNavigateToEdit = { alarm ->
-                                    if (alarm != null) {
-                                        viewModel.selectAlarm(alarm)
-                                        navController.navigate("alarm_edit")
-                                    } else {
-                                        viewModel.clearSelection()
-                                        navController.navigate("alarm_edit")
-                                    }
+                                onNavigateToEdit = { alarmData ->
+                                    viewModel.selectAlarm(alarmData ?: AlarmData())
+                                    navController.navigate("alarm_edit")
                                 }
                             )
                         }
+                        
                         composable("alarm_edit") {
                             val selectedAlarm = viewModel.selectedAlarm.collectAsState().value
                             AlarmEditScreen(
-                                alarm = selectedAlarm,
-                                viewModel = viewModel,
-                                onNavigateBack = { navController.popBackStack() },
-                                onSelectRingtone = {
-                                    // TODO: アラーム音選択の実装
-                                }
+                                onNavigateBack = {
+                                    viewModel.clearSelection()
+                                    navController.popBackStack()
+                                },
+                                onSave = { alarmData ->
+                                    if (selectedAlarm?.id?.isNotEmpty() == true) {
+                                        // 既存のアラームを更新
+                                        viewModel.updateAlarm(context, alarmData.copy(id = selectedAlarm.id))
+                                    } else {
+                                        // 新しいアラームを追加
+                                        viewModel.addAlarm(context, alarmData)
+                                    }
+                                    viewModel.clearSelection()
+                                    navController.popBackStack()
+                                },
+                                alarmData = selectedAlarm
                             )
                         }
                     }
