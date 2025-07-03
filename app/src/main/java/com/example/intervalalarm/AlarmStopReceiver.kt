@@ -1,15 +1,25 @@
 package com.example.intervalalarm
 
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.app.NotificationManager
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.Vibrator
 import android.os.VibratorManager
 
 class AlarmStopReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // MediaPlayerを停止
+        AlarmReceiver.mediaPlayer?.apply {
+            if (isPlaying) {
+                stop()
+            }
+            release()
+        }
+        AlarmReceiver.mediaPlayer = null
+        
         // バイブレーションを停止
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // Android 12以降

@@ -1,76 +1,132 @@
 package com.example.intervalalarm
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.os.VibrationEffect
 import androidx.core.app.NotificationCompat
+import com.example.intervalalarm.data.AlarmRepository
 
 class AlarmReceiver : BroadcastReceiver() {
+    companion object {
+        var mediaPlayer: MediaPlayer? = null
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
+        val alarmId = intent.getStringExtra("alarm_id") ?: return
+        val alarmIndex = intent.getIntExtra("alarm_index", 0)
+        
+        // AlarmRepositoryからアラーム設定を取得
+        val repository = AlarmRepository(context)
+        val alarmData = repository.getAlarmById(alarmId) ?: return
+        
+        // アラームが無効になっている場合は何もしない
+        if (!alarmData.isEnabled) return
+        
+        createNotificationChannel(context)
+        
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "interval_alarm_channel"
-        val channelName = "Interval Alarm"
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH)
-            channel.enableVibration(true)
-            channel.enableLights(true)
-            notificationManager.createNotificationChannel(channel)
+        
+        // アラーム停止用のIntent
+        val stopIntent = Intent(context, AlarmStopReceiver::class.java).apply {
+            putExtra("alarm_id", alarmId)
         }
-
-        // 選択されたアラーム音を取得
-        val prefs = context.getSharedPreferences("alarm_prefs", Context.MODE_PRIVATE)
-        val ringtoneUriString = prefs.getString("ringtone_uri", null)
-        val soundUri = if (ringtoneUriString != null) android.net.Uri.parse(ringtoneUriString) else RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-
-        // アプリを開くためのPendingIntent
-        val appIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        val appPendingIntent = PendingIntent.getActivity(
-            context, 0, appIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // ストップアクション用のPendingIntent
-        val stopIntent = Intent(context, AlarmStopReceiver::class.java)
         val stopPendingIntent = PendingIntent.getBroadcast(
-            context, 0, stopIntent,
+            context,
+            alarmId.hashCode(),
+            stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
-        val notificationBuilder = NotificationCompat.Builder(context, channelId)
+        
+        val notificationBuilder = NotificationCompat.Builder(context, "alarm_channel")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("アラーム")
-            .setContentText("アラームの時間です！")
+            .setContentText("${alarmData.startTime} - ${alarmData.endTime} (${alarmData.interval}分間隔)")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(false)
             .setOngoing(true)
-            .setSound(soundUri)
-            .setContentIntent(appPendingIntent)
             .addAction(
                 android.R.drawable.ic_media_pause,
-                "ストップ",
+                "停止",
                 stopPendingIntent
             )
-            .setFullScreenIntent(appPendingIntent, true)
-
-        // バイブレーション設定の確認（デフォルトはtrue）
-        val isVibrationEnabled = prefs.getBoolean("vibration_enabled", true)
-        if (isVibrationEnabled) {
+        
+        // アラーム音を再生
+        playAlarmSound(context, alarmData.alarmSoundUri)
+        
+        // バイブレーション
+        if (alarmData.isVibrationEnabled) {
             vibrate(context)
         }
-
+        
         notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
+    }
+    
+    private fun playAlarmSound(context: Context, customSoundUri: String) {
+        try {
+            mediaPlayer?.release()
+            mediaPlayer = MediaPlayer()
+            
+            val soundUri = if (customSoundUri.isNotEmpty()) {
+                Uri.parse(customSoundUri)
+            } else {
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            }
+            
+            mediaPlayer?.apply {
+                setDataSource(context, soundUri)
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                isLooping = true
+                prepare()
+                start()
+            }
+        } catch (e: Exception) {
+            // フォールバック：デフォルトアラーム音
+            try {
+                val ringtone = RingtoneManager.getRingtone(
+                    context,
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                )
+                ringtone?.play()
+            } catch (e2: Exception) {
+                // 何もしない
+            }
+        }
+    }
+
+    private fun createNotificationChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "alarm_channel",
+                "アラーム通知",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "アラーム通知用チャンネル"
+                enableVibration(true)
+                setSound(null, null) // 音はMediaPlayerで再生
+            }
+            
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
     }
 
     private fun vibrate(context: Context) {
