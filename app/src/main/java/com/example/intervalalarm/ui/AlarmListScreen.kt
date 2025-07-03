@@ -34,8 +34,8 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlarmListScreen(
-    viewModel: AlarmViewModel,
-    onNavigateToEdit: (AlarmData?) -> Unit
+    modifier: Modifier = Modifier,
+    viewModel: AlarmViewModel
 ) {
     val context = LocalContext.current
     val alarmSettings by viewModel.alarmSettings.collectAsState()
@@ -59,7 +59,7 @@ fun AlarmListScreen(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { onNavigateToEdit(null) },
+                onClick = { /* TODO: Navigate to add new alarm */ },
                 icon = {
                     Icon(
                         Icons.Default.Add,
@@ -106,7 +106,7 @@ fun AlarmListScreen(
                         EnhancedAlarmCard(
                             alarmData = alarmData,
                             onToggle = { viewModel.toggleAlarmEnabled(context, alarmData.id) },
-                            onEdit = { onNavigateToEdit(alarmData) },
+                            onEdit = { /* TODO: Navigate to edit alarm */ },
                             onDelete = { viewModel.deleteAlarm(context, alarmData.id) }
                         )
                     }

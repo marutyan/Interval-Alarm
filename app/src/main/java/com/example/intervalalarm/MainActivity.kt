@@ -6,23 +6,46 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import com.example.intervalalarm.data.AlarmData
 import com.example.intervalalarm.data.AlarmRepository
 import com.example.intervalalarm.domain.AlarmUseCase
 import com.example.intervalalarm.service.AlarmManagerService
-import com.example.intervalalarm.ui.AlarmEditScreen
 import com.example.intervalalarm.ui.AlarmListScreen
 import com.example.intervalalarm.ui.theme.IntervalAlarmTheme
 import com.example.intervalalarm.viewmodel.AlarmViewModel
 import com.example.intervalalarm.viewmodel.AlarmViewModelFactory
+import com.example.intervalalarm.ui.BedtimeScreen
+import com.example.intervalalarm.ui.StopwatchScreen
+import com.example.intervalalarm.ui.TimerScreen
+import com.example.intervalalarm.ui.WorldClockScreen
 
 class MainActivity : ComponentActivity() {
     
@@ -57,53 +80,114 @@ class MainActivity : ComponentActivity() {
             }
         }
         
+        enableEdgeToEdge()
         setContent {
             IntervalAlarmTheme {
-                val navController = rememberNavController()
-                val viewModel: AlarmViewModel = viewModel(
-                    factory = AlarmViewModelFactory(alarmUseCase, alarmManagerService)
-                )
-                
-                AlarmNavigation(navController = navController, viewModel = viewModel)
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    DeskClockApp(
+                        alarmViewModelFactory = AlarmViewModelFactory(alarmUseCase, alarmManagerService)
+                    )
+                }
             }
         }
     }
 }
 
+data class TabItem(
+    val title: String,
+    val icon: ImageVector,
+    val badgeCount: Int? = null
+)
+
 @Composable
-fun AlarmNavigation(navController: NavHostController, viewModel: AlarmViewModel) {
-    NavHost(
-        navController = navController,
-        startDestination = "alarm_list"
-    ) {
-        composable("alarm_list") {
-            AlarmListScreen(
-                viewModel = viewModel,
-                onNavigateToEdit = { alarmData ->
-                    if (alarmData != null) {
-                        navController.navigate("alarm_edit/${alarmData.id}")
-                    } else {
-                        navController.navigate("alarm_edit/new")
-                    }
+fun DeskClockApp(
+    alarmViewModelFactory: AlarmViewModelFactory
+) {
+    val alarmViewModel: AlarmViewModel = viewModel(factory = alarmViewModelFactory)
+    
+    val tabs = listOf(
+        TabItem(
+            title = stringResource(R.string.alarm),
+            icon = Icons.Default.Alarm
+        ),
+        TabItem(
+            title = stringResource(R.string.timer),
+            icon = Icons.Default.Schedule
+        ),
+        TabItem(
+            title = stringResource(R.string.stopwatch),
+            icon = Icons.Default.AccessTime
+        ),
+        TabItem(
+            title = stringResource(R.string.clock),
+            icon = Icons.Default.Language
+        ),
+        TabItem(
+            title = stringResource(R.string.bedtime),
+            icon = Icons.Default.Home
+        )
+    )
+    
+    var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
+    
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                tabs.forEachIndexed { index, tab ->
+                    NavigationBarItem(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        icon = {
+                            BadgedBox(
+                                badge = {
+                                    if (tab.badgeCount != null) {
+                                        Badge {
+                                            Text(tab.badgeCount.toString())
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = tab.icon,
+                                    contentDescription = tab.title
+                                )
+                            }
+                        },
+                        label = { Text(tab.title) }
+                    )
                 }
-            )
-        }
-        
-        composable("alarm_edit/{alarmId}") { backStackEntry ->
-            val alarmId = backStackEntry.arguments?.getString("alarmId")
-            val alarmData = if (alarmId != "new") {
-                viewModel.alarmSettings.value.find { it.id == alarmId }
-            } else {
-                null
             }
-            
-            AlarmEditScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onSave = { alarm ->
-                    viewModel.addOrUpdateAlarm(navController.context, alarm)
-                    navController.popBackStack()
-                },
-                alarmData = alarmData
+        }
+    ) { paddingValues ->
+        when (selectedTabIndex) {
+            0 -> AlarmListScreen(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                viewModel = alarmViewModel
+            )
+            1 -> TimerScreen(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            )
+            2 -> StopwatchScreen(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            )
+            3 -> WorldClockScreen(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            )
+            4 -> BedtimeScreen(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
             )
         }
     }

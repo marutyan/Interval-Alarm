@@ -1,4 +1,113 @@
 <resources>
     <string name="app_name">Interval Alarm</string>
     <string name="widget_description">インターバルアラームの状態を表示</string>
+    <string name="alarm_widget_description">Alarm widget</string>
+    <string name="alarm_widget_on">On</string>
+    <string name="alarm_widget_off">Off</string>
+    
+    <!-- DeskClock Navigation -->
+    <string name="alarm">Alarm</string>
+    <string name="timer">Timer</string>
+    <string name="stopwatch">Stopwatch</string>
+    <string name="clock">Clock</string>
+    <string name="bedtime">Bedtime</string>
+    
+    <!-- Timer -->
+    <string name="timer_start">Start</string>
+    <string name="timer_pause">Pause</string>
+    <string name="timer_resume">Resume</string>
+    <string name="timer_stop">Stop</string>
+    <string name="timer_reset">Reset</string>
+    <string name="timer_add_minute">+1 min</string>
+    <string name="timer_finished">Timer finished</string>
+    <string name="timer_notification_title">Timer</string>
+    <string name="timer_notification_text">Timer has finished</string>
+    
+    <!-- Stopwatch -->
+    <string name="stopwatch_start">Start</string>
+    <string name="stopwatch_pause">Pause</string>
+    <string name="stopwatch_resume">Resume</string>
+    <string name="stopwatch_stop">Stop</string>
+    <string name="stopwatch_reset">Reset</string>
+    <string name="stopwatch_lap">Lap</string>
+    <string name="stopwatch_lap_time">Lap %1$d</string>
+    <string name="stopwatch_total_time">Total time</string>
+    
+    <!-- World Clock -->
+    <string name="world_clock_add_city">Add city</string>
+    <string name="world_clock_search_hint">Search for a city</string>
+    <string name="world_clock_delete_city">Delete city</string>
+    <string name="world_clock_reorder_cities">Reorder cities</string>
+    <string name="world_clock_time_difference">%1$s ahead</string>
+    <string name="world_clock_time_difference_behind">%1$s behind</string>
+    <string name="world_clock_same_time">Same time</string>
+    
+    <!-- Bedtime -->
+    <string name="bedtime_schedule">Schedule</string>
+    <string name="bedtime_bedtime">Bedtime</string>
+    <string name="bedtime_wake_up">Wake up</string>
+    <string name="bedtime_sleep_sounds">Sleep sounds</string>
+    <string name="bedtime_reminder">Bedtime reminder</string>
+    <string name="bedtime_mode">Bedtime mode</string>
+    <string name="bedtime_sunrise_alarm">Sunrise alarm</string>
+    <string name="bedtime_sound">Sound</string>
+    <string name="bedtime_vibrate">Vibrate</string>
+    <string name="bedtime_assistant_routine">Google Assistant Routine</string>
+    <string name="bedtime_sleep_duration">Sleep duration: %1$s</string>
+    <string name="bedtime_activity">Bedtime activity</string>
+    <string name="bedtime_cough_snore">Cough and snore</string>
+    <string name="bedtime_upcoming_events">Upcoming events</string>
+    
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="settings_display">Display</string>
+    <string name="settings_analog_digital">Analog/Digital</string>
+    <string name="settings_show_seconds">Show seconds</string>
+    <string name="settings_24_hour_format">24-hour format</string>
+    <string name="settings_screen_saver">Screen saver</string>
+    <string name="settings_night_mode">Night mode</string>
+    <string name="settings_alarms">Alarms</string>
+    <string name="settings_silence_after">Silence after</string>
+    <string name="settings_snooze_length">Snooze length</string>
+    <string name="settings_alarm_volume">Alarm volume</string>
+    <string name="settings_gradually_increase_volume">Gradually increase volume</string>
+    <string name="settings_volume_buttons">Volume buttons</string>
+    <string name="settings_start_week_on">Start week on</string>
+    <string name="settings_timers">Timers</string>
+    <string name="settings_timer_sound">Timer sound</string>
+    <string name="settings_timer_vibrate">Timer vibrate</string>
+    <string name="settings_home_time_zone">Home time zone</string>
+    <string name="settings_automatic_home_clock">Automatic home clock</string>
+    <string name="settings_change_date_time">Change date and time</string>
+    <string name="settings_set_time_automatically">Set time automatically</string>
+    <string name="settings_time_zone">Time zone</string>
+    <string name="settings_set_automatically">Set automatically</string>
+    
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="add">Add</string>
+    <string name="done">Done</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="monday">Monday</string>
+    <string name="tuesday">Tuesday</string>
+    <string name="wednesday">Wednesday</string>
+    <string name="thursday">Thursday</string>
+    <string name="friday">Friday</string>
+    <string name="saturday">Saturday</string>
+    <string name="sunday">Sunday</string>
+    <string name="today">Today</string>
+    <string name="tomorrow">Tomorrow</string>
+    <string name="everyday">Everyday</string>
+    <string name="weekdays">Weekdays</string>
+    <string name="weekends">Weekends</string>
+    
+    <!-- Time formats -->
+    <string name="hours_minutes">%1$d:%2$02d</string>
+    <string name="minutes_seconds">%1$d:%2$02d</string>
+    <string name="hours_minutes_seconds">%1$d:%2$02d:%3$02d</string>
 </resources>
