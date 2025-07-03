@@ -5,9 +5,11 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.State
 import com.example.intervalalarm.data.AlarmData
+import com.example.intervalalarm.data.AlarmRepository
 import com.example.intervalalarm.AlarmReceiver
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,25 +20,22 @@ import java.time.ZoneId
 import java.util.*
 import android.os.Build
 
-class AlarmViewModel : ViewModel() {
-    private val _alarmSettings = MutableStateFlow<List<AlarmData>>(emptyList())
-    val alarmSettings: StateFlow<List<AlarmData>> = _alarmSettings.asStateFlow()
+class AlarmViewModel(private val repository: AlarmRepository) : ViewModel() {
+    val alarmSettings: StateFlow<List<AlarmData>> = repository.alarms
     
     private val _selectedAlarm = MutableStateFlow<AlarmData?>(null)
     val selectedAlarm: StateFlow<AlarmData?> = _selectedAlarm.asStateFlow()
     
     fun addAlarm(context: Context, alarmData: AlarmData) {
         val newAlarm = alarmData.copy(id = UUID.randomUUID().toString())
-        _alarmSettings.value = _alarmSettings.value + newAlarm
+        repository.addAlarm(newAlarm)
         if (newAlarm.isEnabled) {
             scheduleAlarm(context, newAlarm)
         }
     }
     
     fun updateAlarm(context: Context, updatedAlarm: AlarmData) {
-        _alarmSettings.value = _alarmSettings.value.map { alarm ->
-            if (alarm.id == updatedAlarm.id) updatedAlarm else alarm
-        }
+        repository.updateAlarm(updatedAlarm)
         // 既存のアラームをキャンセルして新しいアラームを設定
         cancelAlarm(context, updatedAlarm.id)
         if (updatedAlarm.isEnabled) {
@@ -46,7 +45,7 @@ class AlarmViewModel : ViewModel() {
     
     fun deleteAlarm(context: Context, alarmId: String) {
         cancelAlarm(context, alarmId)
-        _alarmSettings.value = _alarmSettings.value.filter { it.id != alarmId }
+        repository.deleteAlarm(alarmId)
     }
     
     fun selectAlarm(alarmData: AlarmData) {
@@ -58,26 +57,23 @@ class AlarmViewModel : ViewModel() {
     }
     
     fun toggleAlarmEnabled(context: Context, alarmId: String) {
-        _alarmSettings.value = _alarmSettings.value.map { alarm ->
-            if (alarm.id == alarmId) {
-                val updatedAlarm = alarm.copy(isEnabled = !alarm.isEnabled)
-                if (updatedAlarm.isEnabled) {
-                    scheduleAlarm(context, updatedAlarm)
-                } else {
-                    cancelAlarm(context, alarmId)
-                }
-                updatedAlarm
-            } else alarm
+        val alarm = repository.getAlarmById(alarmId)
+        if (alarm != null) {
+            val updatedAlarm = alarm.copy(isEnabled = !alarm.isEnabled)
+            repository.updateAlarm(updatedAlarm)
+            if (updatedAlarm.isEnabled) {
+                scheduleAlarm(context, updatedAlarm)
+            } else {
+                cancelAlarm(context, alarmId)
+            }
         }
     }
     
     fun stopAllAlarms(context: Context) {
-        _alarmSettings.value.forEach { alarm ->
+        repository.alarms.value.forEach { alarm ->
             cancelAlarm(context, alarm.id)
         }
-        _alarmSettings.value = _alarmSettings.value.map { alarm ->
-            alarm.copy(isEnabled = false)
-        }
+        repository.stopAllAlarms()
     }
     
     private fun scheduleAlarm(context: Context, alarmData: AlarmData) {
@@ -158,5 +154,15 @@ class AlarmViewModel : ViewModel() {
         }
         
         return alarmTimes
+    }
+}
+
+class AlarmViewModelFactory(private val repository: AlarmRepository) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(AlarmViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return AlarmViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 } 

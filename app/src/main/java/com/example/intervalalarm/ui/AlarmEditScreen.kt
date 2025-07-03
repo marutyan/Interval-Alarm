@@ -1,5 +1,12 @@
 package com.example.intervalalarm.ui
 
+import android.app.TimePickerDialog
+import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -26,6 +33,35 @@ fun AlarmEditScreen(
     var isVibrationEnabled by remember { mutableStateOf(alarmData?.isVibrationEnabled ?: true) }
     var alarmSoundUri by remember { mutableStateOf(alarmData?.alarmSoundUri ?: "") }
 
+    // TimePicker用のダイアログ状態
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+
+    // アラーム音選択用のランチャー
+    val ringtonePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val uri = result.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            alarmSoundUri = uri?.toString() ?: ""
+        }
+    }
+
+    // 選択されたアラーム音の名前を取得
+    val selectedRingtoneName = remember(alarmSoundUri) {
+        if (alarmSoundUri.isNotEmpty()) {
+            try {
+                val uri = Uri.parse(alarmSoundUri)
+                val ringtone = RingtoneManager.getRingtone(context, uri)
+                ringtone?.getTitle(context) ?: "カスタム音"
+            } catch (e: Exception) {
+                "カスタム音"
+            }
+        } else {
+            "デフォルト"
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -45,7 +81,9 @@ fun AlarmEditScreen(
 
         // 開始時刻設定
         Card(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showStartTimePicker = true }
         ) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -57,9 +95,14 @@ fun AlarmEditScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "${String.format("%02d", startTime.hour)}:${String.format("%02d", startTime.minute)}",
-                    style = MaterialTheme.typography.headlineMedium
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
-                // TODO: TimePicker実装
+                Text(
+                    text = "タップして変更",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
@@ -67,7 +110,9 @@ fun AlarmEditScreen(
 
         // 終了時刻設定
         Card(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showEndTimePicker = true }
         ) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -79,9 +124,14 @@ fun AlarmEditScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "${String.format("%02d", endTime.hour)}:${String.format("%02d", endTime.minute)}",
-                    style = MaterialTheme.typography.headlineMedium
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
-                // TODO: TimePicker実装
+                Text(
+                    text = "タップして変更",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
@@ -174,8 +224,25 @@ fun AlarmEditScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = selectedRingtoneName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 Button(
-                    onClick = { /* TODO: アラーム音選択 */ },
+                    onClick = {
+                        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "アラーム音を選択")
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                            if (alarmSoundUri.isNotEmpty()) {
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(alarmSoundUri))
+                            }
+                        }
+                        ringtonePickerLauncher.launch(intent)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("アラーム音を選択")
@@ -203,5 +270,33 @@ fun AlarmEditScreen(
         ) {
             Text("保存")
         }
+    }
+
+    // 開始時刻選択ダイアログ
+    if (showStartTimePicker) {
+        TimePickerDialog(
+            context,
+            { _, hour, minute ->
+                startTime = LocalTime.of(hour, minute)
+                showStartTimePicker = false
+            },
+            startTime.hour,
+            startTime.minute,
+            true
+        ).show()
+    }
+
+    // 終了時刻選択ダイアログ
+    if (showEndTimePicker) {
+        TimePickerDialog(
+            context,
+            { _, hour, minute ->
+                endTime = LocalTime.of(hour, minute)
+                showEndTimePicker = false
+            },
+            endTime.hour,
+            endTime.minute,
+            true
+        ).show()
     }
 } 

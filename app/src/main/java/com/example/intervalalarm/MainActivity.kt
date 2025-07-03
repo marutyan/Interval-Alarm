@@ -20,7 +20,9 @@ import com.example.intervalalarm.ui.theme.IntervalAlarmTheme
 import com.example.intervalalarm.ui.AlarmListScreen
 import com.example.intervalalarm.ui.AlarmEditScreen
 import com.example.intervalalarm.viewmodel.AlarmViewModel
+import com.example.intervalalarm.viewmodel.AlarmViewModelFactory
 import com.example.intervalalarm.data.AlarmData
+import com.example.intervalalarm.data.AlarmRepository
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,8 +43,12 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
-                    val viewModel: AlarmViewModel = viewModel()
                     val context = LocalContext.current
+                    
+                    // AlarmRepositoryとViewModelFactoryを作成
+                    val repository = AlarmRepository(context)
+                    val viewModelFactory = AlarmViewModelFactory(repository)
+                    val viewModel: AlarmViewModel = viewModel(factory = viewModelFactory)
                     
                     NavHost(
                         navController = navController,
