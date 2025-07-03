@@ -16,6 +16,7 @@ import java.time.LocalTime
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.*
+import android.os.Build
 
 class AlarmViewModel : ViewModel() {
     private val _alarmSettings = MutableStateFlow<List<AlarmData>>(emptyList())
@@ -81,6 +82,16 @@ class AlarmViewModel : ViewModel() {
     
     private fun scheduleAlarm(context: Context, alarmData: AlarmData) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        
+        // Android 12以降では正確なアラームの権限をチェック
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                // 権限がない場合は設定画面を開くIntentを作成することもできる
+                // ここでは単純にリターンする
+                return
+            }
+        }
+        
         val alarmTimes = calculateAlarmTimes(alarmData.startTime, alarmData.endTime, alarmData.interval)
         
         alarmTimes.forEachIndexed { index, alarmTime ->
@@ -108,11 +119,16 @@ class AlarmViewModel : ViewModel() {
                 }
             }
             
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                calendar.timeInMillis,
-                pendingIntent
-            )
+            try {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    calendar.timeInMillis,
+                    pendingIntent
+                )
+            } catch (e: SecurityException) {
+                // 権限がない場合の処理
+                // ログ出力やユーザーへの通知など
+            }
         }
     }
     
