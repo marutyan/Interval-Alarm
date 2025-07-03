@@ -120,6 +120,19 @@ fun AlarmEditScreen(
                         Text("+")
                     }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(5, 10, 15, 30, 60).forEach { presetInterval ->
+                        Button(
+                            onClick = { interval = presetInterval },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("${presetInterval}分")
+                        }
+                    }
+                }
             }
         }
 

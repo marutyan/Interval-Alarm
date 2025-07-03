@@ -71,6 +71,20 @@ fun AlarmListScreen(
                         )
                     }
                 }
+            } else {
+                item {
+                    Button(
+                        onClick = { viewModel.stopAllAlarms(context) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("すべてのアラームを停止")
+                    }
+                }
             }
         }
     }
