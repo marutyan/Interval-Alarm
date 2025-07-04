@@ -20,7 +20,7 @@ import com.example.intervalalarm.domain.AlarmUseCase
 import com.example.intervalalarm.service.AlarmManagerService
 import com.example.intervalalarm.ui.AlarmEditScreen
 import com.example.intervalalarm.ui.AlarmListScreen
-import com.example.intervalalarm.ui.theme.IntervalAlarmTheme
+import com.example.intervalalarm.ui.theme.IntervalAlarmExpressiveTheme
 import com.example.intervalalarm.viewmodel.AlarmViewModel
 import com.example.intervalalarm.viewmodel.AlarmViewModelFactory
 
@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
         }
         
         setContent {
-            IntervalAlarmTheme {
+            IntervalAlarmExpressiveTheme {
                 val navController = rememberNavController()
                 val viewModel: AlarmViewModel = viewModel(
                     factory = AlarmViewModelFactory(alarmUseCase, alarmManagerService)
